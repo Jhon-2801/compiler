@@ -55,7 +55,7 @@ const (
 func NewLexer(source string) *Lexer {
 	lexer := &Lexer{
 		Source:  source + "\n",
-		CurChar: "+",
+		CurChar: "",
 		CurPos:  -1,
 	}
 	lexer.NextChar()
@@ -101,13 +101,20 @@ func (l *Lexer) SkipComments() {
 	}
 }
 
+// Check whether this token is a number
+func (l *Lexer) Isdigit() bool {
+	if l.Peek() >= "0" && l.Peek() <= "9" {
+		return true
+	}
+	return false
+}
+
 // Return the next token.
 func (l *Lexer) GetToken() Token {
 	l.SkipWhitespace()
 	l.SkipComments()
 	var token Token
 	var lastChar string
-
 	switch l.CurChar {
 	case "+":
 		token = Token{l.CurChar, PLUS}
@@ -153,6 +160,40 @@ func (l *Lexer) GetToken() Token {
 		} else {
 			l.Abort("Exected !=, got !" + l.Peek())
 		}
+	case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		//Leading character is a digit, so this must be a number.
+		//Get all consecutive digits and decimal if there is one.
+		startPos := l.CurPos
+
+		for l.Isdigit() {
+			l.NextChar()
+		}
+		// Decimal
+		if l.Peek() == "." {
+			l.NextChar()
+
+			if !l.Isdigit() {
+				l.Abort("Ilegal character in number")
+			}
+			for l.Isdigit() {
+				l.NextChar()
+			}
+		}
+		tokText := l.Source[startPos : l.CurPos+1] // Get the substring.
+		token = Token{tokText, NUMBER}
+	case "\"":
+		//Get characters between quotation.
+		l.NextChar()
+		startPos := l.CurPos
+
+		for l.CurChar != "\"" {
+			if l.CurChar == "\r" || l.CurChar == "\n" || l.CurChar == "\t" || l.CurChar == "\\" || l.CurChar == "%" {
+				l.Abort("Ilegal character in string")
+			}
+			l.NextChar()
+		}
+		tokText := l.Source[startPos:l.CurPos] // Get the substring
+		token = Token{tokText, STRING}
 	case "\n":
 		token = Token{l.CurChar, NEWLINE}
 	case "":

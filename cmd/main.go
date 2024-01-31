@@ -8,12 +8,12 @@ import (
 
 func main() {
 
-	source := "+- # This is a comment!\n */"
+	source := "+-123 9.8654*/"
 	lex := lexer.NewLexer(source)
 
 	token := lex.GetToken()
 	for token.Kind != lexer.EOF {
-		fmt.Println(token.Kind)
+		fmt.Println(token.Text)
 		token = lex.GetToken()
 	}
 }
