@@ -3,16 +3,17 @@ package main
 import (
 	"fmt"
 
-	"github.com/Jhon-2801/compiler/lexer"
+	"github.com/Jhon-2801/compiler/core/lexer"
 )
 
 func main() {
 
-	source := "LET foobar = 123"
+	source := "+-123 9.8654*/"
 	lex := lexer.NewLexer(source)
 
-	for lex.Peek() != "" {
-		fmt.Println(lex.CurChar)
-		lex.NextChar()
+	token := lex.GetToken()
+	for token.Kind != lexer.EOF {
+		fmt.Println(token.Text)
+		token = lex.GetToken()
 	}
 }
