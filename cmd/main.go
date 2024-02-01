@@ -8,12 +8,12 @@ import (
 
 func main() {
 
-	source := "+-123 9.8654*/"
+	source := "IF+-123 foo*THEN/"
 	lex := lexer.NewLexer(source)
 
 	token := lex.GetToken()
 	for token.Kind != lexer.EOF {
-		fmt.Println(token.Text)
+		fmt.Println(token.Kind)
 		token = lex.GetToken()
 	}
 }

@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"log"
+	"unicode"
 )
 
 type Lexer struct {
@@ -109,23 +110,53 @@ func (l *Lexer) Isdigit() bool {
 	return false
 }
 
+// Check whether this token is a letter
+func (l *Lexer) IsLetter() bool {
+	if unicode.IsLetter(rune(l.Peek()[0])) {
+		return true
+	}
+	return false
+}
+
+var keywordMap = map[string]TokenType{
+	"LABEL":    LABEL,
+	"GOTO":     GOTO,
+	"PRINT":    PRINT,
+	"INPUT":    INPUT,
+	"LET":      LET,
+	"IF":       IF,
+	"THEN":     THEN,
+	"ENDIF":    ENDIF,
+	"WHILE":    WHILE,
+	"REPEAT":   REPEAT,
+	"ENDWHILE": ENDWHILE,
+}
+
+func (l *Lexer) CheckIfKeyword(tokenText string) TokenType {
+	for name, kind := range keywordMap {
+		if name == tokenText && kind >= 100 && kind <= 200 {
+			return kind
+		}
+	}
+	return 0
+}
+
 // Return the next token.
 func (l *Lexer) GetToken() Token {
 	l.SkipWhitespace()
 	l.SkipComments()
 	var token Token
 	var lastChar string
-	switch l.CurChar {
-	case "+":
+	if l.CurChar == "+" {
 		token = Token{l.CurChar, PLUS}
-	case "-":
+	} else if l.CurChar == "-" {
 		token = Token{l.CurChar, MINUS}
-	case "*":
+	} else if l.CurChar == "*" {
 		token = Token{l.CurChar, ASTERISK}
-	case "/":
+	} else if l.CurChar == "/" {
 		token = Token{l.CurChar, SLASH}
-	case "=":
-		//Check whether this token is = or ==
+	} else if l.CurChar == "=" {
+		// Check whether this token is = or ==
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
@@ -133,8 +164,8 @@ func (l *Lexer) GetToken() Token {
 		} else {
 			token = Token{l.CurChar, EQ}
 		}
-	case ">":
-		//Check whether this token is > or >=
+	} else if l.CurChar == ">" {
+		// Check whether this token is > or >=
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
@@ -142,8 +173,8 @@ func (l *Lexer) GetToken() Token {
 		} else {
 			token = Token{l.CurChar, GT}
 		}
-	case "<":
-		//Check whether this token is < or <=
+	} else if l.CurChar == "<" {
+		// Check whether this token is < or <=
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
@@ -151,18 +182,18 @@ func (l *Lexer) GetToken() Token {
 		} else {
 			token = Token{l.CurChar, LT}
 		}
-	case "!":
-		//Check whether this token is ! or !=
+	} else if l.CurChar == "!" {
+		// Check whether this token is ! or !=
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
 			token = Token{lastChar + l.CurChar, NOTEQ}
 		} else {
-			l.Abort("Exected !=, got !" + l.Peek())
+			l.Abort("Expected !=, got !" + l.Peek())
 		}
-	case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
-		//Leading character is a digit, so this must be a number.
-		//Get all consecutive digits and decimal if there is one.
+	} else if l.CurChar >= "0" && l.CurChar <= "9" {
+		// Leading character is a digit, so this must be a number.
+		// Get all consecutive digits and decimal if there is one.
 		startPos := l.CurPos
 
 		for l.Isdigit() {
@@ -173,7 +204,7 @@ func (l *Lexer) GetToken() Token {
 			l.NextChar()
 
 			if !l.Isdigit() {
-				l.Abort("Ilegal character in number")
+				l.Abort("Illegal character in number")
 			}
 			for l.Isdigit() {
 				l.NextChar()
@@ -181,25 +212,41 @@ func (l *Lexer) GetToken() Token {
 		}
 		tokText := l.Source[startPos : l.CurPos+1] // Get the substring.
 		token = Token{tokText, NUMBER}
-	case "\"":
-		//Get characters between quotation.
+	} else if l.CurChar == "\"" {
+		// Get characters between quotation.
 		l.NextChar()
 		startPos := l.CurPos
 
 		for l.CurChar != "\"" {
 			if l.CurChar == "\r" || l.CurChar == "\n" || l.CurChar == "\t" || l.CurChar == "\\" || l.CurChar == "%" {
-				l.Abort("Ilegal character in string")
+				l.Abort("Illegal character in string")
 			}
 			l.NextChar()
 		}
-		tokText := l.Source[startPos:l.CurPos] // Get the substring
+		tokText := l.Source[startPos:l.CurPos] // Get the substring.
 		token = Token{tokText, STRING}
-	case "\n":
+	} else if l.CurChar == "\n" {
 		token = Token{l.CurChar, NEWLINE}
-	case "":
+	} else if l.CurChar == "" {
 		token = Token{Text: "", Kind: EOF}
-	default:
-		l.Abort("Unknow token: " + l.CurChar)
+	} else if unicode.IsLetter(rune(l.CurChar[0])) {
+		//Leading character is a letter, so this must be an identifier or a keyword.
+		//Get all consecutive alpha numeric character.
+		starPos := l.CurPos
+		for l.IsLetter() {
+			l.NextChar()
+		}
+		//Check if the token is in the list of keywords.
+		tokText := l.Source[starPos : l.CurPos+1] // Get the substring
+		keyword := l.CheckIfKeyword(tokText)
+
+		if keyword == 0 {
+			token = Token{tokText, IDENT}
+		} else {
+			token = Token{tokText, keyword}
+		}
+	} else {
+		l.Abort("Unknown token: " + l.CurChar)
 		// Unknown token!
 	}
 	l.NextChar()
