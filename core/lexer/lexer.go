@@ -13,10 +13,11 @@ type Lexer struct {
 
 type Token struct {
 	Text string    // The token's actual text. Used for identifiers, strings, and numbers.
-	Kind TokenType // The TokenType that this token is classified as.
+	Kind TokenInfo // The TokenType that this token is classified as.
 }
 
 // TokenType represents the type of a token.
+
 type TokenType int
 
 const (
@@ -118,24 +119,10 @@ func (l *Lexer) IsLetter() bool {
 	return false
 }
 
-var keywordMap = map[string]TokenType{
-	"LABEL":    LABEL,
-	"GOTO":     GOTO,
-	"PRINT":    PRINT,
-	"INPUT":    INPUT,
-	"LET":      LET,
-	"IF":       IF,
-	"THEN":     THEN,
-	"ENDIF":    ENDIF,
-	"WHILE":    WHILE,
-	"REPEAT":   REPEAT,
-	"ENDWHILE": ENDWHILE,
-}
-
 func (l *Lexer) CheckIfKeyword(tokenText string) TokenType {
-	for name, kind := range keywordMap {
-		if name == tokenText && kind >= 100 && kind <= 200 {
-			return kind
+	for _, kind := range TokenInfoMap {
+		if kind.Name == tokenText && kind.TokenType >= 100 && kind.TokenType <= 200 {
+			return kind.TokenType
 		}
 	}
 	return 0
@@ -148,46 +135,46 @@ func (l *Lexer) GetToken() Token {
 	var token Token
 	var lastChar string
 	if l.CurChar == "+" {
-		token = Token{l.CurChar, PLUS}
+		token = Token{l.CurChar, TokenInfo{PLUS, "PLUS"}}
 	} else if l.CurChar == "-" {
-		token = Token{l.CurChar, MINUS}
+		token = Token{l.CurChar, TokenInfo{MINUS, "MINUS"}}
 	} else if l.CurChar == "*" {
-		token = Token{l.CurChar, ASTERISK}
+		token = Token{l.CurChar, TokenInfo{ASTERISK, "ASTERISK"}}
 	} else if l.CurChar == "/" {
-		token = Token{l.CurChar, SLASH}
+		token = Token{l.CurChar, TokenInfo{SLASH, "SLASH"}}
 	} else if l.CurChar == "=" {
 		// Check whether this token is = or ==
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
-			token = Token{lastChar + l.CurChar, EQEQ}
+			token = Token{lastChar + l.CurChar, TokenInfo{EQEQ, "EQEQ"}}
 		} else {
-			token = Token{l.CurChar, EQ}
+			token = Token{l.CurChar, TokenInfo{EQ, "EQ"}}
 		}
 	} else if l.CurChar == ">" {
 		// Check whether this token is > or >=
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
-			token = Token{lastChar + l.CurChar, GTEQ}
+			token = Token{lastChar + l.CurChar, TokenInfo{GTEQ, "GTEQ"}}
 		} else {
-			token = Token{l.CurChar, GT}
+			token = Token{l.CurChar, TokenInfo{GT, "GT"}}
 		}
 	} else if l.CurChar == "<" {
 		// Check whether this token is < or <=
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
-			token = Token{lastChar + l.CurChar, LTEQ}
+			token = Token{lastChar + l.CurChar, TokenInfo{LTEQ, "LTEQ"}}
 		} else {
-			token = Token{l.CurChar, LT}
+			token = Token{l.CurChar, TokenInfo{LT, "LT"}}
 		}
 	} else if l.CurChar == "!" {
 		// Check whether this token is ! or !=
 		if l.Peek() == "=" {
 			lastChar = l.CurChar
 			l.NextChar()
-			token = Token{lastChar + l.CurChar, NOTEQ}
+			token = Token{lastChar + l.CurChar, TokenInfo{NOTEQ, "NOTEQ"}}
 		} else {
 			l.Abort("Expected !=, got !" + l.Peek())
 		}
@@ -211,7 +198,7 @@ func (l *Lexer) GetToken() Token {
 			}
 		}
 		tokText := l.Source[startPos : l.CurPos+1] // Get the substring.
-		token = Token{tokText, NUMBER}
+		token = Token{tokText, TokenInfo{NUMBER, "NUMBER"}}
 	} else if l.CurChar == "\"" {
 		// Get characters between quotation.
 		l.NextChar()
@@ -224,11 +211,11 @@ func (l *Lexer) GetToken() Token {
 			l.NextChar()
 		}
 		tokText := l.Source[startPos:l.CurPos] // Get the substring.
-		token = Token{tokText, STRING}
+		token = Token{tokText, TokenInfo{STRING, "STRING"}}
 	} else if l.CurChar == "\n" {
-		token = Token{l.CurChar, NEWLINE}
+		token = Token{l.CurChar, TokenInfo{NEWLINE, "NEWLINE"}}
 	} else if l.CurChar == "" {
-		token = Token{Text: "", Kind: EOF}
+		token = Token{Text: "", Kind: TokenInfo{EOF, "EOF"}}
 	} else if unicode.IsLetter(rune(l.CurChar[0])) {
 		//Leading character is a letter, so this must be an identifier or a keyword.
 		//Get all consecutive alpha numeric character.
@@ -241,9 +228,9 @@ func (l *Lexer) GetToken() Token {
 		keyword := l.CheckIfKeyword(tokText)
 
 		if keyword == 0 {
-			token = Token{tokText, IDENT}
+			token = Token{tokText, TokenInfo{IDENT, "IDENT"}}
 		} else {
-			token = Token{tokText, keyword}
+			token = Token{tokText, TokenInfo{keyword, "keyword"}}
 		}
 	} else {
 		l.Abort("Unknown token: " + l.CurChar)
