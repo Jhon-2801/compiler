@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/Jhon-2801/compiler/core/emitter"
 	"github.com/Jhon-2801/compiler/core/lexer"
 	"github.com/Jhon-2801/compiler/core/parser"
 )
@@ -23,9 +24,11 @@ func main() {
 		os.Exit(1)
 	}
 	lexer := lexer.NewLexer(sourse)
-	parser := parser.NewParser(lexer)
+	emit := emitter.NewEmitter("out.c")
+	parser := parser.NewParser(lexer, emit)
 
 	parser.Program() //Start the parser
+	emit.WriteFile()
 	fmt.Println("Parsing completed")
 }
 
