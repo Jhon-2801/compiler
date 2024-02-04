@@ -9,6 +9,10 @@ import (
 
 // Parser object keeps track of current token and checks if the code matches the grammar.
 type Parser struct {
+	symbols        map[string]struct{}
+	labelsDeclared map[string]struct{}
+	labelsGotoed   map[string]struct{}
+
 	lexer     *lexer.Lexer
 	curToken  lexer.Token
 	peekToken lexer.Token
@@ -16,7 +20,12 @@ type Parser struct {
 
 // NewParser creates a new Parser instance with the provided lexer.
 func NewParser(lexer *lexer.Lexer) *Parser {
-	parser := &Parser{lexer: lexer}
+	parser := &Parser{
+		lexer:          lexer,
+		symbols:        make(map[string]struct{}),
+		labelsDeclared: make(map[string]struct{}),
+		labelsGotoed:   make(map[string]struct{}),
+	}
 	parser.nextToken()
 	parser.nextToken() // Call this twice to initialize current and peek.
 	return parser
@@ -60,6 +69,11 @@ func (p *Parser) Program() {
 	for !p.checkToken(lexer.EOF) {
 		p.statement()
 	}
+	for label := range p.labelsGotoed {
+		if _, exists := p.labelsDeclared[label]; !exists {
+			p.abort("Attempting to GOTO to undeclared label: " + label)
+		}
+	}
 }
 func (p *Parser) abort(message string) {
 	fmt.Printf("Error. %s\n", message)
@@ -81,10 +95,12 @@ func (p *Parser) statement() {
 		} else {
 			p.expression()
 		}
+
 	} else if p.checkToken(lexer.IF) { //"IF" comparison "THEN" {statement} "ENDIF"
 		fmt.Println("STATEMENT-IF")
 		p.nextToken()
-		// p.comparison
+		p.comparison()
+
 		p.match(lexer.TokenInfo{TokenType: lexer.THEN, Name: "THEN"})
 		p.nl()
 
@@ -93,10 +109,12 @@ func (p *Parser) statement() {
 			p.statement()
 		}
 		p.match(lexer.TokenInfo{TokenType: lexer.ENDIF, Name: "ENDIF"})
+
 	} else if p.checkToken(lexer.WHILE) { // "WHILE" comparison "REPEAT" {statement} "ENDWHILE"
 		fmt.Println("STATEMENT-WHILE")
 		p.nextToken()
-		// p.comparison
+		p.comparison()
+
 		p.match(lexer.TokenInfo{TokenType: lexer.REPEAT, Name: "REPEAT"})
 		p.nl()
 
@@ -105,33 +123,67 @@ func (p *Parser) statement() {
 			p.statement()
 		}
 		p.match(lexer.TokenInfo{TokenType: lexer.ENDWHILE, Name: "ENDWHILE"})
+
 	} else if p.checkToken(lexer.LABEL) { // "LABEL" ident
 		fmt.Println("STATEMENT-LABEL")
 		p.nextToken()
-
+		if _, exists := p.labelsDeclared[p.curToken.Text]; exists {
+			p.abort("Label already exists: " + p.curToken.Text)
+		}
+		p.labelsDeclared[p.curToken.Text] = struct{}{}
 		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
 	} else if p.checkToken(lexer.GOTO) { // "GOTO" ident
 		fmt.Println("STATEMENT-GOTO")
 		p.nextToken()
 
+		p.labelsDeclared[p.curToken.Text] = struct{}{}
 		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
 	} else if p.checkToken(lexer.LET) { // "LET" ident "=" expression
 		fmt.Println("STATEMENT-LET")
 		p.nextToken()
-
+		if _, exists := p.symbols[p.curToken.Text]; !exists {
+			p.symbols[p.curToken.Text] = struct{}{}
+		}
 		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
 		p.match(lexer.TokenInfo{TokenType: lexer.EQ, Name: "EQ"})
 		p.expression()
+
 	} else if p.checkToken(lexer.INPUT) { // "INPUT" ident
 		fmt.Println("STATEMENT-INPUT")
 		p.nextToken()
-
+		if _, exists := p.symbols[p.curToken.Text]; !exists {
+			p.symbols[p.curToken.Text] = struct{}{}
+		}
 		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
 	} else { //    # This is not a valid statement. Error!
 		p.abort("Invalid statement at " + p.curToken.Text + " (" + p.curToken.Kind.Name + ")")
 	}
-	//Newline
+
 	p.nl()
+}
+
+// comparison ::= expression (("==" | "!=" | ">" | ">=" | "<" | "<=") expression)
+func (p *Parser) comparison() {
+	fmt.Println("COMPARISON")
+
+	p.expression()
+
+	if p.isComparisonOperator() {
+		p.nextToken()
+		p.expression()
+	} else {
+		p.abort("Expected comparison operator at: " + p.curToken.Text)
+	}
+
+	for p.isComparisonOperator() {
+		p.nextToken()
+		p.expression()
+	}
+}
+
+// return true if the current token is a comparison operator
+func (p *Parser) isComparisonOperator() bool {
+	return p.checkToken(lexer.GT) || p.checkToken(lexer.GTEQ) || p.checkToken(lexer.LT) || p.checkToken(lexer.LTEQ) || p.checkToken(lexer.EQEQ) || p.checkToken(lexer.NOTEQ)
 }
 
 //expression ::= term {("-" | "+") term}
@@ -152,9 +204,12 @@ func (p *Parser) expression() {
 func (p *Parser) term() {
 	fmt.Println("TERM")
 
-	//can have 0 or more +/- and expressions.
+	p.unary()
+
+	//can have 0 or more *// and expressions.
 	for p.checkToken(lexer.ASTERISK) || p.checkToken(lexer.SLASH) {
 		p.nextToken()
+		p.unary()
 	}
 }
 
@@ -167,9 +222,27 @@ func (p *Parser) unary() {
 	for p.checkToken(lexer.PLUS) || p.checkToken(lexer.MINUS) {
 		p.nextToken()
 	}
-
+	p.primary()
 }
 
+// primary ::= number | ident
+func (p *Parser) primary() {
+	fmt.Println("PRIMARY (" + p.curToken.Text + ")")
+
+	if p.checkToken(lexer.NUMBER) {
+		p.nextToken()
+	} else if p.checkToken(lexer.IDENT) {
+		if _, exists := p.symbols[p.curToken.Text]; !exists {
+			p.abort("Referencing variable before assignment: " + p.curToken.Text)
+		}
+		p.nextToken()
+	} else {
+		//Error!
+		p.abort("Unexpected token at " + p.curToken.Text)
+	}
+}
+
+// NewLine
 func (p *Parser) nl() {
 	fmt.Println("NEWLINE")
 
