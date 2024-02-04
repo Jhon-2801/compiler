@@ -1,3 +1,4 @@
+
+LABEL loop
 PRINT "hello, world!"
-PRINT "second line"
-PRINT "and a third..."
+GOTO loop

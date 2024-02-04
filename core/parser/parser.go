@@ -52,6 +52,10 @@ func (p *Parser) nextToken() {
 // program ::= {statement}
 func (p *Parser) Program() {
 	fmt.Println("PROGRAM")
+	// Since some newlines are required in our grammar, need to skip the excess.
+	for p.checkToken(lexer.NEWLINE) {
+		p.nextToken()
+	}
 	//Parse all the statements in the program.
 	for !p.checkToken(lexer.EOF) {
 		p.statement()
@@ -71,13 +75,60 @@ func (p *Parser) statement() {
 	if p.checkToken(lexer.PRINT) {
 		fmt.Println("STATEMENT-PRINT")
 		p.nextToken()
-
 		if p.checkToken(lexer.STRING) {
 			//Simple string
 			p.nextToken()
 		} else {
 			p.expression()
 		}
+	} else if p.checkToken(lexer.IF) { //"IF" comparison "THEN" {statement} "ENDIF"
+		fmt.Println("STATEMENT-IF")
+		p.nextToken()
+		// p.comparison
+		p.match(lexer.TokenInfo{TokenType: lexer.THEN, Name: "THEN"})
+		p.nl()
+
+		//zero or more statements in the body.
+		for !p.checkToken(lexer.ENDIF) {
+			p.statement()
+		}
+		p.match(lexer.TokenInfo{TokenType: lexer.ENDIF, Name: "ENDIF"})
+	} else if p.checkToken(lexer.WHILE) { // "WHILE" comparison "REPEAT" {statement} "ENDWHILE"
+		fmt.Println("STATEMENT-WHILE")
+		p.nextToken()
+		// p.comparison
+		p.match(lexer.TokenInfo{TokenType: lexer.REPEAT, Name: "REPEAT"})
+		p.nl()
+
+		//zero or more statements in the body.
+		for !p.checkToken(lexer.ENDWHILE) {
+			p.statement()
+		}
+		p.match(lexer.TokenInfo{TokenType: lexer.ENDWHILE, Name: "ENDWHILE"})
+	} else if p.checkToken(lexer.LABEL) { // "LABEL" ident
+		fmt.Println("STATEMENT-LABEL")
+		p.nextToken()
+
+		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
+	} else if p.checkToken(lexer.GOTO) { // "GOTO" ident
+		fmt.Println("STATEMENT-GOTO")
+		p.nextToken()
+
+		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
+	} else if p.checkToken(lexer.LET) { // "LET" ident "=" expression
+		fmt.Println("STATEMENT-LET")
+		p.nextToken()
+
+		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
+		p.match(lexer.TokenInfo{TokenType: lexer.EQ, Name: "EQ"})
+		p.expression()
+	} else if p.checkToken(lexer.INPUT) { // "INPUT" ident
+		fmt.Println("STATEMENT-INPUT")
+		p.nextToken()
+
+		p.match(lexer.TokenInfo{TokenType: lexer.IDENT, Name: "IDENT"})
+	} else { //    # This is not a valid statement. Error!
+		p.abort("Invalid statement at " + p.curToken.Text + " (" + p.curToken.Kind.Name + ")")
 	}
 	//Newline
 	p.nl()
