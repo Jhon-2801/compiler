@@ -54,7 +54,7 @@ func (p *Parser) Program() {
 	fmt.Println("PROGRAM")
 	//Parse all the statements in the program.
 	for !p.checkToken(lexer.EOF) {
-
+		p.statement()
 	}
 }
 func (p *Parser) abort(message string) {
@@ -69,14 +69,62 @@ func (p *Parser) statement() {
 
 	//"PRINT" (expression | string)
 	if p.checkToken(lexer.PRINT) {
-		print("STATEMENT-PRINT")
+		fmt.Println("STATEMENT-PRINT")
 		p.nextToken()
 
 		if p.checkToken(lexer.STRING) {
 			//Simple string
 			p.nextToken()
 		} else {
-
+			p.expression()
 		}
+	}
+	//Newline
+	p.nl()
+}
+
+//expression ::= term {("-" | "+") term}
+
+func (p *Parser) expression() {
+	fmt.Println("EXPRESSION")
+
+	p.term()
+	//can have 0 or more +/- and expressions.
+	for p.checkToken(lexer.PLUS) || p.checkToken(lexer.MINUS) {
+		p.nextToken()
+		p.term()
+	}
+}
+
+// term ::= unary {("/" | "*") unary}
+
+func (p *Parser) term() {
+	fmt.Println("TERM")
+
+	//can have 0 or more +/- and expressions.
+	for p.checkToken(lexer.ASTERISK) || p.checkToken(lexer.SLASH) {
+		p.nextToken()
+	}
+}
+
+// unary ::= ["+" | "-"] primary
+
+func (p *Parser) unary() {
+	fmt.Println("UNARY")
+
+	//can have 0 or more +/- and expressions.
+	for p.checkToken(lexer.PLUS) || p.checkToken(lexer.MINUS) {
+		p.nextToken()
+	}
+
+}
+
+func (p *Parser) nl() {
+	fmt.Println("NEWLINE")
+
+	p.match(lexer.TokenInfo{TokenType: lexer.NEWLINE, Name: "NEWLINE"})
+
+	for p.checkToken(lexer.NEWLINE) {
+		p.nextToken()
 	}
 }
