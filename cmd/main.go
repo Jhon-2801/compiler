@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/Jhon-2801/compiler/core/lexer"
+	"github.com/Jhon-2801/compiler/core/parser"
 )
 
 func main() {
@@ -14,11 +17,16 @@ func main() {
 	}
 
 	fileName := os.Args[1]
-	_, err := readFile(fileName)
+	sourse, err := readFile(fileName)
 	if err != nil {
 		fmt.Printf("Error reading file %s: %s\n", fileName, err)
 		os.Exit(1)
 	}
+	lexer := lexer.NewLexer(sourse)
+	parser := parser.NewParser(lexer)
+
+	parser.Program() //Start the parser
+	fmt.Println("Parsing completed")
 }
 
 func readFile(fileName string) (string, error) {
